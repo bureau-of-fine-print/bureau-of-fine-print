@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: raw
+    database: project-71e6f4ed-bf24-4c0f-bb0
+    schema: raw
+    tables:
+      - name: games
+      - name: game_results
+      - name: team_game_stats
+      - name: player_game_stats
+      - name: referee_assignments
+      - name: betting_lines
+      - name: opening_lines
+      - name: closing_lines
+      - name: broadcast_schedule
+      - name: team_quarter_stats
+      - name: player_quarter_stats
