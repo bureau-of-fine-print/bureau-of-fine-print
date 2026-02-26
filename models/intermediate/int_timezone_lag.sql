@@ -1,5 +1,5 @@
 with games as (
-    select * from {{ ref('int_game_scores') }}
+    select * from {{ ref('stg_games') }}
 ),
 
 arenas as (
@@ -51,19 +51,15 @@ with_tz_offset as (
         case
             when prev_timezone is null then 0
             when game_timezone = prev_timezone then 0
-            -- Eastern
             when prev_timezone = 'America/New_York' and game_timezone = 'America/Chicago' then -1
             when prev_timezone = 'America/New_York' and game_timezone = 'America/Denver' then -2
             when prev_timezone = 'America/New_York' and game_timezone = 'America/Los_Angeles' then -3
-            -- Central
             when prev_timezone = 'America/Chicago' and game_timezone = 'America/New_York' then 1
             when prev_timezone = 'America/Chicago' and game_timezone = 'America/Denver' then -1
             when prev_timezone = 'America/Chicago' and game_timezone = 'America/Los_Angeles' then -2
-            -- Mountain
             when prev_timezone = 'America/Denver' and game_timezone = 'America/New_York' then 2
             when prev_timezone = 'America/Denver' and game_timezone = 'America/Chicago' then 1
             when prev_timezone = 'America/Denver' and game_timezone = 'America/Los_Angeles' then -1
-            -- Pacific
             when prev_timezone = 'America/Los_Angeles' and game_timezone = 'America/New_York' then 3
             when prev_timezone = 'America/Los_Angeles' and game_timezone = 'America/Chicago' then 2
             when prev_timezone = 'America/Los_Angeles' and game_timezone = 'America/Denver' then 1

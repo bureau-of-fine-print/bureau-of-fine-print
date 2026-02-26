@@ -1,12 +1,11 @@
 with games as (
-    select * from {{ ref('int_game_scores') }}
+    select * from {{ ref('stg_games') }}
 ),
 
 arenas as (
     select * from `project-71e6f4ed-bf24-4c0f-bb0.seeds.dim_arenas`
 ),
 
--- Get each team's previous game arena
 home_with_prev as (
     select
         game_id,
@@ -27,7 +26,6 @@ away_with_prev as (
     from games
 ),
 
--- Calculate distance using Haversine formula
 home_travel as (
     select
         h.game_id,
@@ -39,7 +37,7 @@ home_travel as (
             when h.prev_arena_id = h.arena_id then 0
             else round(
                 3958.8 * acos(
-                    least(1.0, 
+                    least(1.0,
                         sin(a1.latitude * acos(-1) / 180) * sin(a2.latitude * acos(-1) / 180) +
                         cos(a1.latitude * acos(-1) / 180) * cos(a2.latitude * acos(-1) / 180) *
                         cos((a2.longitude - a1.longitude) * acos(-1) / 180)

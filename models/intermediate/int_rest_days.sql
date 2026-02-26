@@ -1,5 +1,5 @@
 with games as (
-    select * from {{ ref('int_game_scores') }}
+    select * from {{ ref('stg_games') }}
 ),
 
 home_rest as (

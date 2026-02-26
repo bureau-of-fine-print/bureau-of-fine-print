@@ -1,5 +1,5 @@
 with games as (
-    select * from {{ ref('int_game_scores') }}
+    select * from {{ ref('stg_games') }}
 ),
 
 arenas as (
@@ -51,7 +51,6 @@ select
     away_alt.game_altitude as away_arena_altitude,
     away_alt.prev_altitude as away_prev_altitude,
     away_alt.game_altitude - coalesce(away_alt.prev_altitude, away_alt.game_altitude) as away_altitude_change,
-    -- Positive means away team is ascending more than home team
     (away_alt.game_altitude - coalesce(away_alt.prev_altitude, away_alt.game_altitude)) -
     (home_alt.game_altitude - coalesce(home_alt.prev_altitude, home_alt.game_altitude)) as altitude_fatigue_advantage
 from games g
