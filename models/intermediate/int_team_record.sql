@@ -12,7 +12,8 @@ team_games as (
         'home' as home_away,
         home_points as team_points,
         away_points as opp_points,
-        case when home_points > away_points then 1 else 0 end as win
+        case when home_points > away_points then 1 else 0 end as win,
+        season
     from game_scores
 
     union all
@@ -25,7 +26,8 @@ team_games as (
         'away' as home_away,
         away_points as team_points,
         home_points as opp_points,
-        case when away_points > home_points then 1 else 0 end as win
+        case when away_points > home_points then 1 else 0 end as win,
+        season
     from game_scores
 ),
 
@@ -39,6 +41,7 @@ with_running_record as (
         team_points,
         opp_points,
         win,
+        season,
         sum(win) over (partition by team_id order by game_date rows between unbounded preceding and current row) as cumulative_wins,
         sum(1 - win) over (partition by team_id order by game_date rows between unbounded preceding and current row) as cumulative_losses,
         row_number() over (partition by team_id order by game_date desc) as game_recency
@@ -49,6 +52,7 @@ select
     team_id,
     game_id,
     game_date,
+    season,         -- ADD THIS
     opponent_id,
     home_away,
     team_points,
@@ -57,6 +61,6 @@ select
     cumulative_wins as wins,
     cumulative_losses as losses,
     cumulative_wins + cumulative_losses as games_played,
-    round(cumulative_wins / (cumulative_wins + cumulative_losses), 3) as win_pct,
+    round(cumulative_wins / nullif(cumulative_wins + cumulative_losses, 0), 3) as win_pct,
     game_recency
 from with_running_record

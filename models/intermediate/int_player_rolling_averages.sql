@@ -6,12 +6,17 @@ game_scores as (
     select game_id, game_date from {{ ref('int_game_scores') }}
 ),
 
+games as (
+    select game_id, season from {{ ref('stg_games') }}
+),
+
 with_date as (
     select
         p.player_name,
         p.team_id,
         p.game_id,
         g.game_date,
+        gs.season,
         p.points,
         p.rebounds,
         p.assists,
@@ -28,13 +33,13 @@ with_date as (
         p.starter
     from player_stats p
     inner join game_scores g on p.game_id = g.game_id
+    inner join games gs on p.game_id = gs.game_id
     where p.minutes_played > 0 and p.minutes_played is not null
 ),
 
 season_avgs as (
     select
         player_name,
-        team_id,
         count(*) as games_played,
         round(avg(points), 1) as pts_season_avg,
         round(avg(rebounds), 1) as reb_season_avg,
@@ -44,7 +49,8 @@ season_avgs as (
         round(avg(turnovers), 1) as tov_season_avg,
         round(avg(plus_minus), 1) as plus_minus_season_avg
     from with_date
-    group by player_name, team_id
+    where season = 2026
+    group by player_name
 )
 
 select
@@ -61,7 +67,7 @@ select
     w.plus_minus,
     w.starter,
 
-    -- Season averages
+    -- Season averages (across all teams)
     s.games_played,
     s.pts_season_avg,
     s.reb_season_avg,
@@ -71,7 +77,7 @@ select
     s.tov_season_avg,
     s.plus_minus_season_avg,
 
-    -- Rolling last 3
+    -- Rolling last 3 (across all teams)
     round(avg(w.points) over (
         partition by w.player_name order by w.game_date
         rows between 2 preceding and current row
@@ -85,7 +91,7 @@ select
         rows between 2 preceding and current row
     ), 1) as ast_last3,
 
-    -- Rolling last 5
+    -- Rolling last 5 (across all teams)
     round(avg(w.points) over (
         partition by w.player_name order by w.game_date
         rows between 4 preceding and current row
@@ -113,4 +119,3 @@ select
 from with_date w
 inner join season_avgs s
     on w.player_name = s.player_name
-    and w.team_id = s.team_id

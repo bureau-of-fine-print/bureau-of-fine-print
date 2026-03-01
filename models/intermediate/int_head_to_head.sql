@@ -1,18 +1,31 @@
 with game_scores as (
     select * from {{ ref('int_game_scores') }}
+),
+
+-- Only completed games, direction-neutral pairing
+all_matchups as (
+    select
+        least(home_team_id, away_team_id)    as team_a,
+        greatest(home_team_id, away_team_id) as team_b,
+        game_date,
+        case
+            when home_team_id = least(home_team_id, away_team_id)
+            then case when home_points > away_points then 1 else 0 end
+            else case when away_points > home_points then 1 else 0 end
+        end as team_a_win
+    from game_scores
+    where home_points is not null
+        and home_points > 0
 )
 
 select
-    home_team_id,
-    away_team_id,
-    count(*) as games_played,
-    sum(case when home_points > away_points then 1 else 0 end) as home_team_wins,
-    sum(case when away_points > home_points then 1 else 0 end) as away_team_wins,
-    round(avg(home_points), 1) as avg_home_points,
-    round(avg(away_points), 1) as avg_away_points,
-    round(avg(home_points + away_points), 1) as avg_total_points,
-    round(avg(home_points - away_points), 1) as avg_point_differential,
-    max(game_date) as last_meeting,
-    min(game_date) as first_meeting
-from game_scores
-group by home_team_id, away_team_id
+    team_a,
+    team_b,
+    count(*)              as games_played,
+    sum(team_a_win)       as team_a_wins,
+    sum(1 - team_a_win)   as team_b_wins,
+    round(avg(team_a_win), 3) as team_a_win_pct,
+    max(game_date)        as last_meeting,
+    min(game_date)        as first_meeting
+from all_matchups
+group by team_a, team_b

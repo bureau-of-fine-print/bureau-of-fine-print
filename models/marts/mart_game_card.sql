@@ -35,11 +35,28 @@ team_record_current as (
         tr.team_id,
         tr.game_id,
         tr.game_date,
+        g.season,
         tr.win,
-        sum(tr.win) over (partition by tr.team_id order by tr.game_date rows between unbounded preceding and current row) as wins,
-        sum(1 - tr.win) over (partition by tr.team_id order by tr.game_date rows between unbounded preceding and current row) as losses,
-        round(sum(tr.win) over (partition by tr.team_id order by tr.game_date rows between unbounded preceding and current row) /
-            (row_number() over (partition by tr.team_id order by tr.game_date)), 3) as win_pct
+        sum(tr.win) over (
+            partition by tr.team_id, g.season
+            order by tr.game_date
+            rows between unbounded preceding and current row
+        ) as wins,
+        sum(1 - tr.win) over (
+            partition by tr.team_id, g.season
+            order by tr.game_date
+            rows between unbounded preceding and current row
+        ) as losses,
+        round(
+            sum(tr.win) over (
+                partition by tr.team_id, g.season
+                order by tr.game_date
+                rows between unbounded preceding and current row
+            ) / nullif(row_number() over (
+                partition by tr.team_id, g.season
+                order by tr.game_date
+            ), 0)
+        , 3) as win_pct
     from {{ ref('int_team_record') }} tr
     inner join {{ ref('stg_games') }} g on tr.game_id = g.game_id
     where g.season = (
@@ -88,14 +105,14 @@ away_streaks as (
 home_rolling as (
     select
         tr.team_id,
-        tr.pts_last5 as home_pts_last5,
-        tr.pts_last10 as home_pts_last10,
-        tr.opp_pts_last5 as home_opp_pts_last5,
-        tr.opp_pts_last10 as home_opp_pts_last10,
-        tr.win_pct_last5 as home_win_pct_last5,
-        tr.win_pct_last10 as home_win_pct_last10,
-        tr.pace_last5 as home_pace_last5,
-        tr.pace_last10 as home_pace_last10
+        tr.pts_last5          as home_pts_last5,
+        tr.pts_last10         as home_pts_last10,
+        tr.opp_pts_last5      as home_opp_pts_last5,
+        tr.opp_pts_last10     as home_opp_pts_last10,
+        tr.win_pct_last5      as home_win_pct_last5,
+        tr.win_pct_last10     as home_win_pct_last10,
+        tr.pace_last5         as home_pace_last5,
+        tr.pace_last10        as home_pace_last10
     from {{ ref('int_team_rolling_averages') }} tr
     qualify row_number() over (partition by tr.team_id order by tr.game_date desc) = 1
 ),
@@ -103,31 +120,43 @@ home_rolling as (
 away_rolling as (
     select
         tr.team_id,
-        tr.pts_last5 as away_pts_last5,
-        tr.pts_last10 as away_pts_last10,
-        tr.opp_pts_last5 as away_opp_pts_last5,
-        tr.opp_pts_last10 as away_opp_pts_last10,
-        tr.win_pct_last5 as away_win_pct_last5,
-        tr.win_pct_last10 as away_win_pct_last10,
-        tr.pace_last5 as away_pace_last5,
-        tr.pace_last10 as away_pace_last10
+        tr.pts_last5          as away_pts_last5,
+        tr.pts_last10         as away_pts_last10,
+        tr.opp_pts_last5      as away_opp_pts_last5,
+        tr.opp_pts_last10     as away_opp_pts_last10,
+        tr.win_pct_last5      as away_win_pct_last5,
+        tr.win_pct_last10     as away_win_pct_last10,
+        tr.pace_last5         as away_pace_last5,
+        tr.pace_last10        as away_pace_last10
     from {{ ref('int_team_rolling_averages') }} tr
     qualify row_number() over (partition by tr.team_id order by tr.game_date desc) = 1
 ),
 
+-- FIXED: direction-neutral, completed games only, current season only
 head_to_head as (
     select
-        g1.home_team_id,
-        g1.away_team_id,
-        count(*) as h2h_games,
-        sum(case when g1.home_points > g1.away_points then 1 else 0 end) as h2h_home_wins,
-        sum(case when g1.away_points > g1.home_points then 1 else 0 end) as h2h_away_wins,
-        round(avg(g1.home_points + g1.away_points), 1) as h2h_avg_total_points,
-        max(g1.game_date) as h2h_last_meeting
-    from {{ ref('int_game_scores') }} g1
-    inner join {{ ref('stg_games') }} sg on g1.game_id = sg.game_id
+        least(gs.home_team_id, gs.away_team_id)    as team_a,
+        greatest(gs.home_team_id, gs.away_team_id) as team_b,
+        count(*)                                    as h2h_games,
+        sum(case
+            when gs.home_team_id = least(gs.home_team_id, gs.away_team_id)
+            then case when gs.home_points > gs.away_points then 1 else 0 end
+            else case when gs.away_points > gs.home_points then 1 else 0 end
+        end)                                        as h2h_team_a_wins,
+        sum(case
+            when gs.home_team_id = greatest(gs.home_team_id, gs.away_team_id)
+            then case when gs.home_points > gs.away_points then 1 else 0 end
+            else case when gs.away_points > gs.home_points then 1 else 0 end
+        end)                                        as h2h_team_b_wins,
+        max(gs.game_date)                           as h2h_last_meeting
+    from {{ ref('int_game_scores') }} gs
+    inner join {{ ref('stg_games') }} sg on gs.game_id = sg.game_id
     where sg.season = (select max(season) from {{ ref('stg_games') }})
-    group by g1.home_team_id, g1.away_team_id
+        and gs.home_points is not null
+        and gs.home_points > 0
+    group by
+        least(gs.home_team_id, gs.away_team_id),
+        greatest(gs.home_team_id, gs.away_team_id)
 ),
 
 referee_assignments as (
@@ -143,7 +172,7 @@ home_ref_record as (
         team_id,
         referee_id,
         games_with_referee,
-        win_pct,
+        weighted_ref_effect    as win_pct,
         avg_points_scored,
         avg_points_allowed
     from {{ ref('int_team_referee_record') }}
@@ -154,7 +183,7 @@ away_ref_record as (
         team_id,
         referee_id,
         games_with_referee,
-        win_pct,
+        weighted_ref_effect    as win_pct,
         avg_points_allowed
     from {{ ref('int_team_referee_record') }}
 ),
@@ -163,8 +192,8 @@ home_pace_perf as (
     select
         team_id,
         pace_bucket,
-        count(*) as games,
-        sum(win) as wins,
+        count(*)              as games,
+        sum(win)              as wins,
         round(sum(win)/count(*), 3) as win_pct
     from {{ ref('int_team_performance_by_pace') }}
     where is_current_season = true
@@ -175,8 +204,8 @@ away_pace_perf as (
     select
         team_id,
         pace_bucket,
-        count(*) as games,
-        sum(win) as wins,
+        count(*)              as games,
+        sum(win)              as wins,
         round(sum(win)/count(*), 3) as win_pct
     from {{ ref('int_team_performance_by_pace') }}
     where is_current_season = true
@@ -202,7 +231,33 @@ select
     gs.winner_home_away,
     gs.total_points,
 
+    -- Quarter scores (null until game is played)
+    gs.home_pts_q1,
+    gs.home_pts_q2,
+    gs.home_pts_q3,
+    gs.home_pts_q4,
+    gs.home_pts_ot1,
+    gs.home_pts_ot2,
+    gs.away_pts_q1,
+    gs.away_pts_q2,
+    gs.away_pts_q3,
+    gs.away_pts_q4,
+    gs.away_pts_ot1,
+    gs.away_pts_ot2,
+
+    -- Derived quarter fields
+    case
+        when gs.home_pts_q4 is not null
+        then gs.home_pts_q4 - gs.away_pts_q4
+    end as q4_margin,
+    case
+        when gs.home_pts_q1 is not null
+        then (gs.home_pts_q1 + gs.home_pts_q2 + gs.home_pts_q3)
+           - (gs.away_pts_q1 + gs.away_pts_q2 + gs.away_pts_q3)
+    end as margin_entering_q4,
+
     -- Pace (null until game is played)
+    -- overtime_periods comes from int_game_pace via stg_game_results, not int_game_scores
     gp.home_possessions,
     gp.away_possessions,
     gp.game_pace,
@@ -231,12 +286,12 @@ select
     al.altitude_fatigue_advantage,
 
     -- Current season records
-    hr.wins as home_wins,
-    hr.losses as home_losses,
-    hr.win_pct as home_win_pct,
-    ar.wins as away_wins,
-    ar.losses as away_losses,
-    ar.win_pct as away_win_pct,
+    hr.wins      as home_wins,
+    hr.losses    as home_losses,
+    hr.win_pct   as home_win_pct,
+    ar.wins      as away_wins,
+    ar.losses    as away_losses,
+    ar.win_pct   as away_win_pct,
 
     -- Streaks
     hs.home_streak_label,
@@ -262,11 +317,18 @@ select
     arol.away_pace_last5,
     arol.away_pace_last10,
 
-    -- Head to head current season
+    -- Head to head current season (FIXED: direction-neutral)
     h2h.h2h_games,
-    h2h.h2h_home_wins,
-    h2h.h2h_away_wins,
-    h2h.h2h_avg_total_points,
+    case
+        when g.home_team_id = least(g.home_team_id, g.away_team_id)
+        then h2h.h2h_team_a_wins
+        else h2h.h2h_team_b_wins
+    end as h2h_home_wins,
+    case
+        when g.away_team_id = least(g.home_team_id, g.away_team_id)
+        then h2h.h2h_team_a_wins
+        else h2h.h2h_team_b_wins
+    end as h2h_away_wins,
     h2h.h2h_last_meeting,
 
     -- Referees
@@ -275,61 +337,61 @@ select
     ra.referee_3,
 
     -- Crew chief tendencies
-    rt.games_officiated as crew_chief_games,
-    rt.avg_total_fouls as crew_chief_avg_fouls,
-    rt.avg_total_fta as crew_chief_avg_fta,
-    rt.avg_total_points as crew_chief_avg_total_points,
-    rt.home_win_pct as crew_chief_home_win_pct,
+    rt.games_officiated          as crew_chief_games,
+    rt.avg_total_fouls           as crew_chief_avg_fouls,
+    rt.avg_total_fta             as crew_chief_avg_fta,
+    rt.avg_total_points          as crew_chief_avg_total_points,
+    rt.home_win_pct              as crew_chief_home_win_pct,
 
     -- Home team record with crew chief
-    htr.games_with_referee as home_games_with_crew_chief,
-    htr.win_pct as home_win_pct_with_crew_chief,
+    htr.games_with_referee       as home_games_with_crew_chief,
+    htr.win_pct                  as home_win_pct_with_crew_chief,
 
     -- Away team record with crew chief
-    atr.games_with_referee as away_games_with_crew_chief,
-    atr.win_pct as away_win_pct_with_crew_chief,
+    atr.games_with_referee       as away_games_with_crew_chief,
+    atr.win_pct                  as away_win_pct_with_crew_chief,
 
     -- Home team pace performance current season
-    hpp_fast.games as home_fast_pace_games,
-    hpp_fast.wins as home_fast_pace_wins,
-    hpp_fast.win_pct as home_fast_pace_win_pct,
-    hpp_avg.games as home_avg_pace_games,
-    hpp_avg.wins as home_avg_pace_wins,
-    hpp_avg.win_pct as home_avg_pace_win_pct,
-    hpp_slow.games as home_slow_pace_games,
-    hpp_slow.wins as home_slow_pace_wins,
-    hpp_slow.win_pct as home_slow_pace_win_pct,
+    hpp_fast.games               as home_fast_pace_games,
+    hpp_fast.wins                as home_fast_pace_wins,
+    hpp_fast.win_pct             as home_fast_pace_win_pct,
+    hpp_avg.games                as home_avg_pace_games,
+    hpp_avg.wins                 as home_avg_pace_wins,
+    hpp_avg.win_pct              as home_avg_pace_win_pct,
+    hpp_slow.games               as home_slow_pace_games,
+    hpp_slow.wins                as home_slow_pace_wins,
+    hpp_slow.win_pct             as home_slow_pace_win_pct,
 
     -- Away team pace performance current season
-    app_fast.games as away_fast_pace_games,
-    app_fast.wins as away_fast_pace_wins,
-    app_fast.win_pct as away_fast_pace_win_pct,
-    app_avg.games as away_avg_pace_games,
-    app_avg.wins as away_avg_pace_wins,
-    app_avg.win_pct as away_avg_pace_win_pct,
-    app_slow.games as away_slow_pace_games,
-    app_slow.wins as away_slow_pace_wins,
-    app_slow.win_pct as away_slow_pace_win_pct
+    app_fast.games               as away_fast_pace_games,
+    app_fast.wins                as away_fast_pace_wins,
+    app_fast.win_pct             as away_fast_pace_win_pct,
+    app_avg.games                as away_avg_pace_games,
+    app_avg.wins                 as away_avg_pace_wins,
+    app_avg.win_pct              as away_avg_pace_win_pct,
+    app_slow.games               as away_slow_pace_games,
+    app_slow.wins                as away_slow_pace_wins,
+    app_slow.win_pct             as away_slow_pace_win_pct
 
 from games g
-left join game_scores gs on g.game_id = gs.game_id
-left join game_pace gp on g.game_id = gp.game_id
-left join rest_days r on g.game_id = r.game_id
-left join travel t on g.game_id = t.game_id
-left join timezone_lag tz on g.game_id = tz.game_id
+left join game_scores gs      on g.game_id = gs.game_id
+left join game_pace gp        on g.game_id = gp.game_id
+left join rest_days r         on g.game_id = r.game_id
+left join travel t            on g.game_id = t.game_id
+left join timezone_lag tz     on g.game_id = tz.game_id
 left join altitude_fatigue al on g.game_id = al.game_id
 left join national_broadcast nb on g.game_id = nb.game_id
-left join home_record hr on g.home_team_id = hr.team_id
-left join away_record ar on g.away_team_id = ar.team_id
-left join home_streaks hs on g.home_team_id = hs.team_id
-left join away_streaks aws on g.away_team_id = aws.team_id
-left join home_rolling hrol on g.home_team_id = hrol.team_id
-left join away_rolling arol on g.away_team_id = arol.team_id
+left join home_record hr      on g.home_team_id = hr.team_id
+left join away_record ar      on g.away_team_id = ar.team_id
+left join home_streaks hs     on g.home_team_id = hs.team_id
+left join away_streaks aws    on g.away_team_id = aws.team_id
+left join home_rolling hrol   on g.home_team_id = hrol.team_id
+left join away_rolling arol   on g.away_team_id = arol.team_id
 left join head_to_head h2h
-    on g.home_team_id = h2h.home_team_id
-    and g.away_team_id = h2h.away_team_id
-left join referee_assignments ra on g.game_id = ra.game_id
-left join ref_tendencies rt on ra.referee_1 = rt.referee_id
+    on  least(g.home_team_id, g.away_team_id) = h2h.team_a
+    and greatest(g.home_team_id, g.away_team_id) = h2h.team_b
+left join referee_assignments ra  on g.game_id = ra.game_id
+left join ref_tendencies rt       on ra.referee_1 = rt.referee_id
 left join home_ref_record htr
     on g.home_team_id = htr.team_id
     and ra.referee_1 = htr.referee_id
