@@ -75,7 +75,7 @@ select
     g.away_team_id,
     home_tz.timezone_shift as home_timezone_shift,
     away_tz.timezone_shift as away_timezone_shift,
-    away_tz.timezone_shift - home_tz.timezone_shift as timezone_lag_advantage
+    away_tz.timezone_shift as timezone_lag_advantage
 from games g
 left join with_tz_offset home_tz
     on g.game_id = home_tz.game_id

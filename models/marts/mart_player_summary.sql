@@ -9,7 +9,6 @@ player_streaks as (
 player_quarter_avgs as (
     select
         player_name,
-        team_id,
         round(avg(case when quarter = 'Q1' then points end), 1) as avg_pts_q1,
         round(avg(case when quarter = 'Q2' then points end), 1) as avg_pts_q2,
         round(avg(case when quarter = 'Q3' then points end), 1) as avg_pts_q3,
@@ -23,10 +22,10 @@ player_quarter_avgs as (
         round(avg(case when quarter = 'Q3' then plus_minus end), 1) as avg_pm_q3,
         round(avg(case when quarter = 'Q4' then plus_minus end), 1) as avg_pm_q4
     from {{ ref('stg_player_quarter_stats') }}
-    group by player_name, team_id
+    group by player_name
 ),
 
--- Most recent stats per player
+-- Most recent stats per player across all teams
 current_form as (
     select
         player_name,
@@ -55,14 +54,13 @@ current_form as (
         pts_above_avg_last3,
         pts_above_avg_last5
     from player_rolling
-    qualify row_number() over (partition by player_name, team_id order by game_date desc) = 1
+    qualify row_number() over (partition by player_name order by game_date desc) = 1
 ),
 
--- Current streak per player
+-- Current streak per player across all teams
 current_streak as (
     select
         player_name,
-        team_id,
         is_pts_hot_last3,
         is_pts_hot_last5,
         is_pts_cold_last3,
@@ -70,7 +68,7 @@ current_streak as (
         hot_game_streak,
         below_avg_streak
     from player_streaks
-    qualify row_number() over (partition by player_name, team_id order by game_date desc) = 1
+    qualify row_number() over (partition by player_name order by game_date desc) = 1
 )
 
 select
@@ -127,7 +125,5 @@ select
 from current_form cf
 left join current_streak cs
     on cf.player_name = cs.player_name
-    and cf.team_id = cs.team_id
 left join player_quarter_avgs pqa
     on cf.player_name = pqa.player_name
-    and cf.team_id = pqa.team_id
