@@ -8,13 +8,17 @@ renamed as (
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+        REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
             player_name,
             r'ņ', 'n'), r'ģ', 'g'),
             r'[čć]|Ä\x87|Ä\x8d', 'c'), r'[šŠ]|Å\xa1', 's'),
             r'[žŽ]|Å\xbe', 'z'), r'[đĐ]|Ä\x91', 'd'),
-            r'[şŞğĞıİçÇöÖüÜ]', 'c'), r'[àáâãäåÀÁÂÃÄÅ]', 'a'),
-            r'[èéêëÈÉÊË]', 'e'), r'[^\x00-\x7F]', ''),
-            r'\s+(III|II|IV|V)$', ''), r'\s+II$', '') AS player_name,
+            r'[şŞ]', 's'), r'[üÜ]', 'u'),
+            r'[öÖ]', 'o'), r'[çÇ]', 'c'),
+            r'[ğĞ]', 'g'), r'[ıİ]', 'i'),
+            r'[àáâãäåÀÁÂÃÄÅ]', 'a'), r'[èéêëÈÉÊË]', 'e'),
+            r'[^\x00-\x7F]', ''),
+            r'\s+(III|II|IV|V|II)$', '') AS player_name,
         team_id,
         starter,
         -- Convert minutes from "MM:SS" string to decimal minutes
@@ -45,4 +49,5 @@ renamed as (
 
 
 select * from renamed
+
 
