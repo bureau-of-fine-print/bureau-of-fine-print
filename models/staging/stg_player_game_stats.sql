@@ -5,7 +5,7 @@ with source as (
 renamed as (
     select
         game_id,
-        REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+        INITCAP(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
@@ -18,7 +18,7 @@ renamed as (
             r'[ğĞ]', 'g'), r'[ıİ]', 'i'),
             r'[àáâãäåÀÁÂÃÄÅ]', 'a'), r'[èéêëÈÉÊË]', 'e'),
             r'[^\x00-\x7F]', ''),
-            r'\s+(III|II|IV|V|II)$', '') AS player_name,
+            r'\s+(III|II|IV|V|II)$', '')) AS player_name,
         team_id,
         starter,
         -- Convert minutes from "MM:SS" string to decimal minutes
@@ -49,5 +49,6 @@ renamed as (
 
 
 select * from renamed
+
 
 
