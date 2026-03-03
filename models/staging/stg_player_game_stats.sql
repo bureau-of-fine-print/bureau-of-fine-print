@@ -8,7 +8,7 @@ renamed as (
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
         REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
-            ps.player_name,
+            player_name,
             r'ņ', 'n'), r'ģ', 'g'),
             r'[čć]|Ä\x87|Ä\x8d', 'c'), r'[šŠ]|Å\xa1', 's'),
             r'[žŽ]|Å\xbe', 'z'), r'[đĐ]|Ä\x91', 'd'),
@@ -45,3 +45,4 @@ renamed as (
 
 
 select * from renamed
+
