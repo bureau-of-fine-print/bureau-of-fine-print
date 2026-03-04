@@ -84,5 +84,5 @@ AND NOT EXISTS (
     WHERE i.team_id = lg.team_id
     AND i.player_name_normalized = LOWER(REGEXP_REPLACE(lg.player_name, '[^a-zA-Z ]', ''))
 )
-AND lg.days_since_last_game <= 60
+AND lg.days_since_last_game <= 45
 ORDER BY lg.days_since_last_game DESC
