@@ -62,7 +62,7 @@ current_season_stats as (
         count(*)                                        as current_season_games,
         round(sum(win) / nullif(count(*), 0), 3)       as current_season_win_pct
     from team_ref_games
-    where season = current_season
+    where season = (select max(season) from {{ ref('stg_games') }})
     group by team_id, referee_id
 ),
 

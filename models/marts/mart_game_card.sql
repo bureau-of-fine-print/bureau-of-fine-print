@@ -172,7 +172,7 @@ home_ref_record as (
         team_id,
         referee_id,
         games_with_referee,
-        weighted_ref_effect    as win_pct,
+        weighted_win_pct    as win_pct,
         avg_points_scored,
         avg_points_allowed
     from {{ ref('int_team_referee_record') }}
@@ -183,9 +183,45 @@ away_ref_record as (
         team_id,
         referee_id,
         games_with_referee,
-        weighted_ref_effect    as win_pct,
+        weighted_win_pct    as win_pct,
         avg_points_allowed
     from {{ ref('int_team_referee_record') }}
+),
+
+home_ref_ats AS (
+    SELECT
+        team_id,
+        referee_id,
+        games_with_ref,
+        ats_wins,
+        ats_losses,
+        ats_win_pct,
+        overs,
+        unders,
+        over_pct,
+        avg_ats_margin,
+        avg_total_vs_line
+    FROM {{ ref('int_team_referee_ats') }}
+),
+
+away_ref_ats AS (
+    SELECT
+        team_id,
+        referee_id,
+        games_with_ref,
+        ats_wins,
+        ats_losses,
+        ats_win_pct,
+        overs,
+        unders,
+        over_pct,
+        avg_ats_margin,
+        avg_total_vs_line
+    FROM {{ ref('int_team_referee_ats') }}
+),
+
+ref_ats AS (
+    SELECT * FROM {{ ref('int_referee_ats') }}
 ),
 
 home_pace_perf as (
@@ -371,7 +407,32 @@ select
     app_avg.win_pct              as away_avg_pace_win_pct,
     app_slow.games               as away_slow_pace_games,
     app_slow.wins                as away_slow_pace_wins,
-    app_slow.win_pct             as away_slow_pace_win_pct
+    app_slow.win_pct             as away_slow_pace_win_pct,
+    -- Referee ATS tendencies
+    rats.home_ats_pct                           AS ref_home_ats_pct,
+    rats.over_pct                               AS ref_over_pct,
+    rats.avg_total_vs_line                      AS ref_avg_total_vs_line,
+    rats.overs                                  AS ref_overs,
+    rats.unders                                 AS ref_unders,
+    rats.games_officiated                       AS ref_ats_games,
+
+    -- Home team ATS with this ref
+    hrats.ats_wins                              AS home_ref_ats_wins,
+    hrats.ats_losses                            AS home_ref_ats_losses,
+    hrats.ats_win_pct                           AS home_ref_ats_pct,
+    hrats.over_pct                              AS home_ref_over_pct,
+    hrats.avg_ats_margin                        AS home_ref_avg_ats_margin,
+    hrats.avg_total_vs_line                     AS home_ref_avg_total_vs_line,
+    hrats.games_with_ref                        AS home_ref_ats_games,
+
+    -- Away team ATS with this ref
+    arats.ats_wins                              AS away_ref_ats_wins,
+    arats.ats_losses                            AS away_ref_ats_losses,
+    arats.ats_win_pct                           AS away_ref_ats_pct,
+    arats.over_pct                              AS away_ref_over_pct,
+    arats.avg_ats_margin                        AS away_ref_avg_ats_margin,
+    arats.avg_total_vs_line                     AS away_ref_avg_total_vs_line,
+    arats.games_with_ref                        AS away_ref_ats_games,
 
 from games g
 left join game_scores gs      on g.game_id = gs.game_id
@@ -416,3 +477,11 @@ left join away_pace_perf app_avg
 left join away_pace_perf app_slow
     on g.away_team_id = app_slow.team_id
     and app_slow.pace_bucket = 'slow'
+LEFT JOIN ref_ats rats
+    ON ra.referee_1 = rats.referee_id
+LEFT JOIN home_ref_ats hrats
+    ON g.home_team_id = hrats.team_id
+    AND ra.referee_1 = hrats.referee_id
+LEFT JOIN away_ref_ats arats
+    ON g.away_team_id = arats.team_id
+    AND ra.referee_1 = arats.referee_id
