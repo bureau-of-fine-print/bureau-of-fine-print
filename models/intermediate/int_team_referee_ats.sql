@@ -12,6 +12,7 @@ home_games AS (
         g.home_team_id                                          AS team_id,
         ra.referee_1                                            AS referee_id,
         g.game_id,
+        g.season,
         'home'                                                  AS home_away,
         CASE WHEN g.ats_result = 'home_covered' THEN 1
              WHEN g.ats_result = 'push' THEN NULL
@@ -31,6 +32,7 @@ away_games AS (
         g.away_team_id                                          AS team_id,
         ra.referee_1                                            AS referee_id,
         g.game_id,
+        g.season,
         'away'                                                  AS home_away,
         CASE WHEN g.ats_result = 'away_covered' THEN 1
              WHEN g.ats_result = 'push' THEN NULL
@@ -49,11 +51,15 @@ combined AS (
     SELECT * FROM home_games
     UNION ALL
     SELECT * FROM away_games
+),
+
+current_season AS (
+    SELECT MAX(season) AS season FROM combined
 )
 
 SELECT
-    team_id,
-    referee_id,
+    c.team_id,
+    c.referee_id,
     COUNT(*)                                                    AS games_with_ref,
     SUM(covered)                                               AS ats_wins,
     COUNT(covered) - SUM(covered)                              AS ats_losses,
@@ -63,5 +69,7 @@ SELECT
     ROUND(AVG(went_over), 3)                                   AS over_pct,
     ROUND(AVG(ats_margin), 2)                                  AS avg_ats_margin,
     ROUND(AVG(total_vs_line), 2)                               AS avg_total_vs_line
-FROM combined
-GROUP BY team_id, referee_id
+FROM combined c
+CROSS JOIN current_season cs
+WHERE c.season = cs.season
+GROUP BY c.team_id, c.referee_id
