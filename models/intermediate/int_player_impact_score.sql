@@ -33,6 +33,26 @@ team_season_games AS (
     GROUP BY home_team_id
 ),
 
+player_current_team AS (
+    SELECT
+        player_name,
+        team_id AS current_team_id
+    FROM (
+        SELECT
+            ps.player_name,
+            ps.team_id,
+            ROW_NUMBER() OVER (
+                PARTITION BY ps.player_name
+                ORDER BY MAX(g.game_date) DESC
+            ) AS rn
+        FROM {{ ref('stg_player_game_stats') }} ps
+        JOIN {{ ref('stg_games') }} g ON ps.game_id = g.game_id
+        WHERE g.season = (SELECT MAX(season) FROM {{ ref('stg_games') }})
+        GROUP BY ps.player_name, ps.team_id
+    )
+    WHERE rn = 1
+),
+
 player_stats AS (
     SELECT
         cts.*,
@@ -47,10 +67,12 @@ player_stats AS (
         mps.below_avg_streak
     FROM current_team_stats cts
     JOIN team_season_games tsg ON cts.team_id = tsg.team_id
+    JOIN player_current_team pct
+        ON cts.player_name = pct.player_name
+        AND cts.team_id = pct.current_team_id
     LEFT JOIN {{ ref('mart_player_summary') }} mps
         ON cts.player_name = mps.player_name
         AND cts.team_id = mps.team_id
-    WHERE cts.games_with_current_team >= LEAST(5, CEIL(tsg.games_played_this_season * 0.10))
 ),
 
 ranked AS (
