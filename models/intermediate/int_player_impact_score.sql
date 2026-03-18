@@ -1,6 +1,6 @@
 WITH current_team_stats AS (
     SELECT
-        INITCAP(`project-71e6f4ed-bf24-4c0f-bb0.marts.normalize_player_name`(ps.player_name)) AS player_name,
+        ps.player_name,
         ps.team_id,
         COUNT(DISTINCT ps.game_id)        AS games_with_current_team,
         ROUND(AVG(ps.points), 1)          AS pts_season_avg,
@@ -35,7 +35,7 @@ team_season_games AS (
 
 player_current_team AS (
     SELECT
-        INITCAP(`project-71e6f4ed-bf24-4c0f-bb0.marts.normalize_player_name`(ps.player_name)) AS player_name,
+        player_name,
         team_id AS current_team_id
     FROM (
         SELECT
