@@ -3,9 +3,9 @@ WITH current_team_games AS (
         ps.player_name,
         ps.team_id,
         COUNT(DISTINCT ps.game_id) AS games_with_current_team
-    FROM {{ source('staging', 'stg_player_game_stats') }} ps
-    JOIN {{ source('staging', 'stg_games') }} g ON ps.game_id = g.game_id
-    WHERE g.season = (SELECT MAX(season) FROM {{ source('staging', 'stg_games') }})
+    FROM {{ ref('stg_player_game_stats') }} ps
+    JOIN {{ ref('stg_games') }} g ON ps.game_id = g.game_id
+    WHERE g.season = (SELECT MAX(season) FROM {{ ref('stg_games') }})
     GROUP BY ps.player_name, ps.team_id
 ),
 
@@ -13,8 +13,8 @@ team_season_games AS (
     SELECT
         home_team_id AS team_id,
         COUNT(DISTINCT game_id) AS games_played_this_season
-    FROM {{ source('staging', 'stg_games') }}
-    WHERE season = (SELECT MAX(season) FROM {{ source('staging', 'stg_games') }})
+    FROM {{ ref('stg_games') }}
+    WHERE season = (SELECT MAX(season) FROM {{ ref('stg_games') }})
     AND game_date < CURRENT_DATE('America/New_York')
     GROUP BY home_team_id
 ),
@@ -88,4 +88,4 @@ SELECT
     hot_game_streak,
     below_avg_streak
 FROM ranked
-WHERE team_rank <= 8
+WHERE team_rank <= 7
