@@ -1,5 +1,5 @@
 with source as (
-    select * from {{ source('mlb_raw', 'inning_scores') }}
+    select * from {{ source('mlb_raw', 'game_batter_logs') }}
 ),
 
 renamed as (
