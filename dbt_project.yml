@@ -48,10 +48,16 @@ models:
       +materialized: view
       +schema: intermediate
       +database: project-71e6f4ed-bf24-4c0f-bb0
+      mlb:
+        +schema: mlb_intermediate
+        +database: project-71e6f4ed-bf24-4c0f-bb0
     marts:
       +materialized: table
       +schema: marts
       +database: project-71e6f4ed-bf24-4c0f-bb0
+      mlb:
+        +schema: mlb_marts
+        +database: project-71e6f4ed-bf24-4c0f-bb0
 
 seeds:
   bureau_of_fine_print:
