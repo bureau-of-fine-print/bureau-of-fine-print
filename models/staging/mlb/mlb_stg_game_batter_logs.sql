@@ -6,21 +6,43 @@ renamed as (
     select
         game_id,
         game_date,
+        player_id,
+        player_name,
         team_id,
         team_abbr,
         is_home,
-        inning,
-        runs,
-        hits,
-        errors,
-        -- derived
-        case when inning <= 3  then 'early'
-             when inning <= 6  then 'middle'
-             when inning <= 9  then 'late'
-             else 'extra'
-        end as inning_group,
-        case when inning >= 7 then true else false end as is_late_inning,
-        case when inning > 9  then true else false end as is_extra_inning,
+        batting_order,
+        is_starter,
+        sub_inning,
+        ab,
+        r,
+        h,
+        doubles,
+        triples,
+        hr,
+        rbi,
+        bb,
+        so,
+        sb,
+        cs,
+        hbp,
+        sac,
+        left_on_base,
+        ab + bb + hbp + sac as plate_appearances,
+        h - doubles - triples - hr as singles,
+        case when ab > 0 then round(h / ab, 3) else null end as avg,
+        case when (ab + bb + hbp + sac) > 0
+             then round((h + bb + hbp) / (ab + bb + hbp + sac), 3)
+             else null end as obp,
+        case when ab > 0
+             then round((h - doubles - triples - hr + 2*doubles + 3*triples + 4*hr) / ab, 3)
+             else null end as slg,
+        case when ab > 0 and (ab + bb + hbp + sac) > 0
+             then round(
+                (h + bb + hbp) / (ab + bb + hbp + sac)
+                + (h - doubles - triples - hr + 2*doubles + 3*triples + 4*hr) / ab, 3)
+             else null end as ops,
+        extract(year from game_date) as season,
         inserted_at
     from source
 )
