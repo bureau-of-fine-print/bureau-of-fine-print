@@ -41,6 +41,9 @@ models:
       +materialized: view
       +schema: staging
       +database: project-71e6f4ed-bf24-4c0f-bb0
+      mlb:
+        +schema: mlb_staging
+        +database: project-71e6f4ed-bf24-4c0f-bb0
     intermediate:
       +materialized: view
       +schema: intermediate

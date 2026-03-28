@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: mlb_raw
+    database: project-71e6f4ed-bf24-4c0f-bb0
+    schema: mlb_raw
+    tables:
+      - name: schedule
+      - name: game_results
+      - name: inning_scores
+      - name: game_batter_logs
+      - name: game_pitcher_logs
+      - name: lineups
+      - name: ump_assignments
+      - name: odds
+      - name: weather
+      - name: injuries
+      - name: transactions
+      - name: rosters
+      - name: player_profiles
+      - name: parks
