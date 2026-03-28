@@ -1,6 +1,9 @@
 -- mlb_int_bullpen_rolling.sql
--- Bullpen fatigue and performance signals per team per game.
--- Tracks IP in last 1/2/3 days and ERA over last 7 days.
+-- Bullpen performance signals per team per game.
+-- Tracks IP in last 1/2/3/7 days and ERA/WHIP/K9 over last 7 days.
+-- DS audit (2026-03-28): dropped IP-based fatigue_signal tiers (confirmed noise).
+-- Primary signal is now bp_era_7d vs league average (4.10).
+-- bp_era_signal: fresh (<3.0), average (3.0-5.0), tired (>5.0), insufficient_sample (null ERA).
 -- One row per team per game entering that game.
 
 with pitcher_logs as (
@@ -28,7 +31,6 @@ daily_bullpen as (
         sum(bb)                                         as day_bb,
         sum(so)                                         as day_so,
         count(distinct player_id)                       as pitchers_used,
-        -- flag if any reliever threw more than 1 inning (heavy usage)
         max(ip_outs)                                    as max_single_pitcher_outs,
         countif(ip_outs >= 6)                           as pitchers_over_2_innings
     from pitcher_logs
@@ -77,7 +79,7 @@ rolling as (
                  and db.game_date < gd.game_date
                  then db.day_so else 0 end)             as so_7d,
 
-        -- heavy usage days in last 3 days
+        -- heavy usage days in last 3 days (kept for context/post use)
         countif(db.game_date >= date_sub(gd.game_date, interval 3 day)
                 and db.game_date < gd.game_date
                 and db.pitchers_over_2_innings > 0)     as heavy_usage_days_3d
@@ -97,12 +99,13 @@ final as (
         team_id,
         season,
 
+        -- Raw IP fields (kept for reference and context)
         round(ip_outs_1d / 3.0, 1)                     as bp_ip_1d,
         round(ip_outs_2d / 3.0, 1)                     as bp_ip_2d,
         round(ip_outs_3d / 3.0, 1)                     as bp_ip_3d,
         round(ip_outs_7d / 3.0, 1)                     as bp_ip_7d,
 
-        -- 7-day ERA
+        -- 7-day ERA (primary signal per DS audit)
         case when ip_outs_7d > 0
              then round(er_7d * 27.0 / ip_outs_7d, 2)
              else null
@@ -122,16 +125,23 @@ final as (
 
         heavy_usage_days_3d,
 
-        -- fatigue signal
+        -- ERA-based signal replacing IP fatigue tiers (DS audit 2026-03-28)
+        -- League avg BP ERA ~4.10. Thresholds: fresh <3.0, tired >5.0.
+        -- null when insufficient sample (<3 IP last 7 days)
         case
-            when ip_outs_3d >= 18 then 'heavily_fatigued'  -- 6+ IP last 3 days
-            when ip_outs_3d >= 12 then 'fatigued'          -- 4+ IP last 3 days
-            when ip_outs_2d >= 9  then 'moderately_tired'  -- 3+ IP last 2 days
-            when ip_outs_1d >= 6  then 'used_yesterday'    -- 2+ IP yesterday
-            else 'fresh'
-        end                                             as fatigue_signal,
+            when ip_outs_7d < 9 then 'insufficient_sample'   -- < 3 IP, can't trust ERA
+            when er_7d * 27.0 / ip_outs_7d < 3.0 then 'fresh'
+            when er_7d * 27.0 / ip_outs_7d > 5.0 then 'tired'
+            else 'average'
+        end                                             as bp_era_signal,
 
-        -- rested flag
+        -- ERA vs league average delta (positive = worse than avg, negative = better)
+        case when ip_outs_7d >= 9
+             then round((er_7d * 27.0 / ip_outs_7d) - 4.10, 2)
+             else null
+        end                                             as bp_era_vs_avg,
+
+        -- rested flag (no bullpen usage last 2 days — useful for context)
         case when ip_outs_2d = 0 then true else false end as bullpen_rested
 
     from rolling
