@@ -1,7 +1,9 @@
 -- mlb_int_pitcher_splits_rest.sql
 -- Starting pitcher performance by days of rest.
--- Short rest (< 4 days) is a meaningful negative signal.
--- Extra rest (> 5 days) can go either way.
+-- Short rest (< 4 days) is a meaningful negative signal (directional, strong theory).
+-- Extra rest (5-8 days) confirmed no effect — DS audit 2026-03-28.
+-- Long layoff (15+ days, DL returns) is a real durability penalty:
+--   ERA +0.4-0.5 above standard, IP -0.7 to -1.0 shorter → more bullpen exposure.
 -- One row per pitcher start with rest days calculated.
 
 with pitcher_logs as (
@@ -69,12 +71,14 @@ final as (
         hr,
 
         -- rest classification
+        -- Note: extra_rest (6-8 days) confirmed no effect vs standard rest.
+        -- long_layoff (15+ days) is a separate signal — DL returns go shorter and allow more runs.
         case
             when days_rest is null          then 'first_start'
             when days_rest <= 3             then 'short_rest'
             when days_rest <= 5             then 'standard_rest'
-            when days_rest <= 8             then 'extra_rest'
-            else 'long_layoff'
+            when days_rest <= 14            then 'extra_rest'
+            else                                 'long_layoff'
         end                                             as rest_classification,
 
         -- flags
@@ -83,8 +87,14 @@ final as (
         end                                             as is_short_rest,
 
         case when days_rest is not null
-                  and days_rest >= 6        then true else false
+                  and days_rest between 6 and 14 then true else false
         end                                             as is_extra_rest,
+
+        -- long layoff flag: DS audit confirmed ERA +0.4-0.5, IP -0.7 to -1.0 vs standard rest
+        -- apply: win model -0.05 composite, totals +0.40 runs (shorter outing = more bullpen exposure)
+        case when days_rest is not null
+                  and days_rest >= 15       then true else false
+        end                                             as is_long_layoff,
 
         -- derived stats for this start
         case when ip_outs > 0
