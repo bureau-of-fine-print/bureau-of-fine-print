@@ -87,17 +87,17 @@ final as (
         -- classification
         case
             when total_games >= 20
-                 and games_scored_1st / nullif(total_games, 0) >= 0.45
+                 and games_scored_1st / nullif(total_games, 0) >= 0.33
             then 'scores_early'
             else null
         end                                                  as first_inning_tendency,
 
         case
             when total_games >= 20
-                 and late_innings_scored / nullif(late_innings_played, 0) >= 0.35
+                 and late_innings_scored / nullif(late_innings_played, 0) >= 0.27
             then 'strong_late'
             when total_games >= 20
-                 and late_innings_scored / nullif(late_innings_played, 0) <= 0.20
+                 and late_innings_scored / nullif(late_innings_played, 0) <= 0.21
             then 'weak_late'
             else 'average_late'
         end                                                  as late_inning_tendency,
