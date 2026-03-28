@@ -76,4 +76,16 @@ select
     team_id, season, is_home, games, wins,
     round(wins / nullif(games, 0), 3) as win_pct,
     avg_runs_scored, avg_runs_allowed, avg_total_runs, hr,
-    case when ab > 0 then round(h / ab,
+    case when ab > 0 then round(h / ab, 3) else null end as avg,
+    case when pa > 0 then round((h + total_bb + hbp) / pa, 3) else null end as obp,
+    case when ab > 0
+         then round((singles + 2*doubles + 3*triples + 4*hr) / ab, 3)
+         else null end as slg,
+    case when ab > 0 and pa > 0
+         then round((h + total_bb + hbp) / pa
+              + (singles + 2*doubles + 3*triples + 4*hr) / ab, 3)
+         else null end as ops,
+    case when pa > 0 then round(so / pa, 3) else null end as k_rate,
+    case when pa > 0 then round(total_bb / pa, 3) else null end as bb_rate,
+    case when games >= 10 then true else false end as has_sample
+from aggregated
