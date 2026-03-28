@@ -84,18 +84,18 @@ final as (
         -- strike zone classification
         case
             when count(*) >= 20
-                 and sum(game_so) * 27.0 / nullif(sum(game_ip_outs), 0) >= 9.5
+                 and sum(game_so) * 27.0 / nullif(sum(game_ip_outs), 0) >= 8.8
             then 'large_zone'
             when count(*) >= 20
-                 and sum(game_so) * 27.0 / nullif(sum(game_ip_outs), 0) <= 7.5
+                 and sum(game_so) * 27.0 / nullif(sum(game_ip_outs), 0) <= 8.4
             then 'small_zone'
             else 'average_zone'
         end                                                         as zone_classification,
 
         -- run environment classification
         case
-            when count(*) >= 20 and avg(total_runs) >= 10.0 then 'high_run'
-            when count(*) >= 20 and avg(total_runs) <= 7.5  then 'low_run'
+            when count(*) >= 20 and avg(total_runs) >= 9.3 then 'high_run'
+            when count(*) >= 20 and avg(total_runs) <= 8.5  then 'low_run'
             else 'average_run'
         end                                                         as run_environment,
 
